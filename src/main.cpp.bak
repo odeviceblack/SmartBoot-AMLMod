@@ -23,17 +23,17 @@ DECL_HOOKv(SocialClub_LoadScreen, void* self)
 {
 	// Chama a função original
 	SocialClub_LoadScreen(self);
+
 	logger->Info("SocialClub_LoadScreen => Jumping to main menu!");
 
-	JNIEnv* env = aml->GetJNIEnvironment();
-	jclass gtasaClass = env->FindClass("com/rockstargames/gtasa/GTASA");
-	if (!gtasaClass) return;
+	// Chama SocialClub::signInOffline para pular autenticação
+	void(*SocialClub_signInOffline)(void*) =
+		(void(*)(void*)) aml->GetSym(h_SCAnd, "_ZN10SocialClub13signInOfflineEv");
 
-	jmethodID exitMethod = env->GetStaticMethodID(gtasaClass, "staticExitSocialClub", "()V");
-	if (!exitMethod) return;
-
-	env->CallStaticVoidMethod(gtasaClass, exitMethod);
-	logger->Info("SocialClub_LoadScreen => Jumped successfully!");
+	if(SocialClub_signInOffline)
+		SocialClub_signInOffline(self);
+	else
+		logger->Error("Failed to locate SocialClub::signInOffline symbol!");
 }
 
 //------------------------//
