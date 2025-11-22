@@ -6,7 +6,7 @@ SCAndSkip is a mod for GTA San Andreas Android that automatically skips the EULA
 
 ---
 
-## ⚙️ Instalação
+## ⚙️ Installation
 
 1. Download the file `libSCAndSkip.so` or `libSCAndSkip64.so`
 2. Place it in the folder: /sdcard/Android_unprotected/data/com.rockstargames.gtasa/mods/
