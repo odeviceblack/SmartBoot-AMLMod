@@ -1,180 +1,80 @@
 #include <mod/amlmod.h>
-#include <inttypes.h>
 #include <logger.h>
+#include <inttypes.h>
+#include <jni.h>
 
-MYMOD(SCAndSkip, SCAndSkip, 1.2, DeviceBlack)
+MYMOD(Test.Mod, Test Mod, 1, DeviceBlack)
 
-//------------------------//
-// Global variables
-//------------------------//
-void* h_SCAnd = nullptr;
+void* h_libSCAnd = nullptr;
 
-//------------------------//
-// Forward declarations
-//------------------------//
-void ExitSocialClub();
-void SkipEULA();
-void HookLoadScreen();
-void EnableFullScreen();
+void safeClear(JNIEnv* env)
+{
+	if(env->ExceptionCheck())
+	{
+		env->ExceptionDescribe();
+		env->ExceptionClear();
+	}
+}
 
-//------------------------//
-// Hook da função SocialClub::LoadScreen
-//------------------------//
+void hideSystemUI()
+{
+	JNIEnv* env = aml->GetJNIEnvironment();
+	if(!env) return logger->Error("invalid JNI environment!");
+
+	jclass nvUtilClass = env->FindClass("com/nvidia/devtech/NvUtil");
+	if(!nvUtilClass) return logger->Error("nvUtilClass not found!");
+	safeClear(env);
+
+	jmethodID getInstance = env->GetStaticMethodID(nvUtilClass, "getInstance", "()Lcom/nvidia/devtech/NvUtil;");
+	if(!getInstance) return logger->Error("getInstance not found!");
+	safeClear(env);
+
+	jobject instanceObj = env->CallStaticObjectMethod(nvUtilClass, getInstance);
+	if(!instanceObj) return logger->Error("instanceObj not found!");
+	safeClear(env);
+
+	jfieldID activityField = env->GetFieldID(nvUtilClass, "activity", "Landroid/app/Activity;");
+	if(!activityField) return logger->Error("activityField not found!");
+	safeClear(env);
+
+	jobject activityObj = env->GetObjectField(instanceObj, activityField);
+	if(!activityObj) return logger->Error("activityObj not found!");
+	safeClear(env);
+
+	jclass activityClass = env->FindClass("com/nvidia/devtech/NvEventQueueActivity");
+	if(!activityClass) return logger->Error("activityClass not found!");
+	safeClear(env);
+
+	jmethodID hideSystemUI = env->GetMethodID(activityClass, "hideSystemUI", "()V");
+	if(!hideSystemUI) return logger->Error("hideSystemUI not found!");
+	safeClear(env);
+
+	env->CallVoidMethod(activityObj, hideSystemUI);
+	safeClear(env);
+
+	env->DeleteLocalRef(nvUtilClass);
+	env->DeleteLocalRef(instanceObj);
+	env->DeleteLocalRef(activityObj);
+	env->DeleteLocalRef(activityClass);
+}
+
 DECL_HOOKv(SocialClub_LoadScreen, void* self)
 {
-	// Chama a função original
-	SocialClub_LoadScreen(self);
-	EnableFullScreen();
+	hideSystemUI();
 
-	logger->Info("SocialClub_LoadScreen => Jumping to main menu!");
+	void (*signInOffline)(void*) = nullptr;
+	SETSYM_TO(signInOffline, h_libSCAnd, "_ZN10SocialClub13signInOfflineEv");
 
-	JNIEnv* env = aml->GetJNIEnvironment();
-	jclass gtasaClass = env->FindClass("com/rockstargames/gtasa/GTASA");
-	if (!gtasaClass) return;
-
-	jmethodID exitMethod = env->GetStaticMethodID(gtasaClass, "staticExitSocialClub", "()V");
-	if (!exitMethod) return;
-
-	env->CallStaticVoidMethod(gtasaClass, exitMethod);
-	logger->Info("SocialClub_LoadScreen => Jumped successfully!");
+	if(signInOffline)
+		signInOffline(self);
 }
 
-//------------------------//
-// Função para pular a tela do EULA
-//------------------------//
-void SkipEULA()
+ON_MOD_LOAD()
 {
-	logger->Info("Looking for LegalScreenShown symbol...");
+	logger->SetTag("Test");
 
-	uintptr_t LegalScreenShown = aml->GetSym(h_SCAnd, "LegalScreenShown");
-	if(!LegalScreenShown)
-	{
-		logger->Error("Failed to locate LegalScreenShown symbol!");
-		return;
-	}
+	h_libSCAnd = aml->GetLibHandle("libSCAnd.so");
+	logger->Info("libSCAnd.so: 0x%" PRIXPTR, (uintptr_t)h_libSCAnd);
 
-	// Força a variável para true para pular o EULA
-	*(bool*) LegalScreenShown = true;
-	logger->Info("Successfully skipped Social Club EULA screen.");
-}
-
-//------------------------//
-// Hook principal
-//------------------------//
-void HookLoadScreen()
-{
-	uintptr_t symLoadScreen = aml->GetSym(h_SCAnd, "_ZN10SocialClub10LoadScreenEv");
-	if(!symLoadScreen)
-	{
-		logger->Error("Failed to locate SocialClub::LoadScreen symbol!");
-		return;
-	}
-
-	HOOK(SocialClub_LoadScreen, symLoadScreen);
-	logger->Info("Hooked SocialClub::LoadScreen successfully.");
-}
-
-//------------------------//
-// Inicialização do mod
-//------------------------//
-void ExitSocialClub()
-{
-	// Carrega a biblioteca libSCAnd.so
-	logger->Info("Loading libSCAnd.so...");
-	h_SCAnd = aml->GetLibHandle("libSCAnd.so");
-
-	if(!h_SCAnd)
-	{
-		logger->Error("Failed to load libSCAnd.so!");
-		return;
-	}
-
-	logger->Info("Successfully loaded libSCAnd.so => 0x%" PRIXPTR, (uintptr_t) h_SCAnd);
-
-	// Pula a tela do EULA
-	SkipEULA();
-
-	// Hook LoadScreen para pular login
-	HookLoadScreen();
-}
-
-void EnableFullScreen()
-{
-	JNIEnv* env = aml->GetJNIEnvironment();
-
-	// --- Obter classe GTASA ---
-	jclass gtasaClass = env->FindClass("com/rockstargames/gtasa/GTASA");
-	jfieldID selfField = env->GetStaticFieldID(gtasaClass, "gtasaSelf", "Lcom/rockstargames/gtasa/GTASA;");
-	jobject activityObj = env->GetStaticObjectField(gtasaClass, selfField);
-	jclass activityClass = env->GetObjectClass(activityObj);
-
-	// getWindow()
-	jmethodID getWindow = env->GetMethodID(activityClass, "getWindow", "()Landroid/view/Window;");
-	jobject windowObj = env->CallObjectMethod(activityObj, getWindow);
-	jclass windowClass = env->GetObjectClass(windowObj);
-
-	if(android_get_device_api_level() < 12)
-	{
-		// getDecorView()
-		jmethodID getDecorView = env->GetMethodID(windowClass, "getDecorView", "()Landroid/view/View;");
-		jobject decorViewObj = env->CallObjectMethod(windowObj, getDecorView);
-	
-		// LEGACY FLAGS (ainda funcionam no Android 15)
-		const int uiFlags =
-			0x00000004 |  // FULLSCREEN
-			0x00000400 |  // HIDE_NAVIGATION
-			0x00001000 |  // IMMERSIVE_STICKY
-			0x00000200;   // LAYOUT_HIDE_NAVIGATION
-	
-		jclass decorClass = env->GetObjectClass(decorViewObj);
-		jmethodID setSystemUiVisibility = env->GetMethodID(decorClass, "setSystemUiVisibility", "(I)V");
-		env->CallVoidMethod(decorViewObj, setSystemUiVisibility, uiFlags);
-	}
-	else
-	{
-		// --- ANDROID 12–15 MODE (WindowInsetsController) ---
-		jmethodID getInsetsController = env->GetMethodID(windowClass, "getInsetsController", "()Landroid/view/WindowInsetsController;");
-		jobject insetsController = env->CallObjectMethod(windowObj, getInsetsController);
-	
-		if (insetsController)
-		{
-			jclass insetsClass = env->GetObjectClass(insetsController);
-	
-			// hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars())
-			jclass windowInsetsType = env->FindClass("android/view/WindowInsets$Type");
-			jmethodID statusBars = env->GetStaticMethodID(windowInsetsType, "statusBars", "()I");
-			jmethodID navigationBars = env->GetStaticMethodID(windowInsetsType, "navigationBars", "()I");
-	
-			int types = env->CallStaticIntMethod(windowInsetsType, statusBars) | env->CallStaticIntMethod(windowInsetsType, navigationBars);
-	
-			jmethodID hide = env->GetMethodID(insetsClass, "hide", "(I)V");
-			env->CallVoidMethod(insetsController, hide, types);
-	
-			// setSystemBarsBehavior(BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE)
-			jmethodID setBehavior = env->GetMethodID(insetsClass, "setSystemBarsBehavior", "(I)V");
-
-			int behavior = 2; // BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-			env->CallVoidMethod(insetsController, setBehavior, behavior);
-		}
-	}
-	
-	logger->Info("The statusBars and navigationBars have been hidden!");
-}
-
-//------------------------//
-// Pré-carregamento do mod
-//------------------------//
-ON_MOD_PRELOAD()
-{
-	// Configurações do logger
-	logger->SetTag(PROJECT_NAME_STR);
-	
-	/*
-	logger->SetFile(aml->GetConfigPath(), "log_SCAndSkip.txt");
-	logger->EnableFileLogging(true);
-	logger->Info("File logging started!");
-	*/
-
-	// Inicializa o mod
-	ExitSocialClub();
+	HOOKSYM(SocialClub_LoadScreen, h_libSCAnd, "_ZN10SocialClub10LoadScreenEv");
 }

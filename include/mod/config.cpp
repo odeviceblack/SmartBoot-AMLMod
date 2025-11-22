@@ -4,7 +4,7 @@
     #define snprintf stbsp_snprintf
 #endif
 #include "config.h"
-#include <mod/logger.h>
+#include <logger.h>
 
 #include "amlmod.h"
 #include "iaml.h"
