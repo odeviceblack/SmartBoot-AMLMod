@@ -1,6 +1,7 @@
 # Coletar todos os .cpp da pasta src e suas subpastas
 file(GLOB_RECURSE SRC_ALL_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+    ${CMAKE_SOURCE_DIR}/include/mod/config.cpp
 )
 
 # Expor variável para o CMakeLists pai
