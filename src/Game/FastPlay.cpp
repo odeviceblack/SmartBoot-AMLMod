@@ -1,16 +1,15 @@
-#include "StartGame.hpp"
-#include "main.hpp"
-
+#include "FastPlay.hpp"
+#include "../main.hpp"
 #include <vector>
 #include <string>
 #include <filesystem>
 #include <unordered_map>
 #include <sstream>
 
-namespace fs = std::filesystem;
-
-namespace
+namespace FastPlay
 {
+	namespace fs = std::filesystem;
+
 	int start_mode = 0;
 	int start_slot = -1;
 
@@ -103,7 +102,7 @@ namespace
 	{
 		mainMenuScreen_Update(self, delta);
 		if(start_mode == 0) return;
-
+	
 		switch(start_mode)
 		{
 			case 1:
@@ -145,22 +144,21 @@ namespace
 		menu_LoadSlot(start_slot);
 		start_slot = -1;
 	}
-}
 
-void startGameProcess(const char* mode, const char* slots)
-{
-	start_mode = getStartMode(mode);
-	save_slots = splitSlots(slots);
-
-	SETSYM_TO(startGameScreen_onNewGameCheck, h_lib_gtasa, "_ZN15StartGameScreen14OnNewGameCheckEv");
-	SETSYM_TO(startGameScreen_onLoadGame, h_lib_gtasa, "_ZN15StartGameScreen10OnLoadGameEv");
-	SETSYM_TO(mainMenuScreen_onResume, h_lib_gtasa, "_ZN14MainMenuScreen8OnResumeEv");
-
-	HOOKSYM(mainMenuScreen_Update, h_lib_gtasa, "_ZN14MainMenuScreen6UpdateEf");
-
-	if(start_mode >= 3)
+	void Init(const char* mode, const char* slots)
 	{
-		findFirstExistingSlot();
+		start_mode = getStartMode(mode);
+		save_slots = splitSlots(slots);
+
+		SETSYM_TO(startGameScreen_onNewGameCheck, h_lib_gtasa, "_ZN15StartGameScreen14OnNewGameCheckEv");
+		SETSYM_TO(startGameScreen_onLoadGame, h_lib_gtasa, "_ZN15StartGameScreen10OnLoadGameEv");
+		SETSYM_TO(mainMenuScreen_onResume, h_lib_gtasa, "_ZN14MainMenuScreen8OnResumeEv");
 		HOOKSYM(menu_LoadSlot, h_lib_gtasa, "_Z13Menu_LoadSloti");
+
+		if(start_mode > 0)
+		{
+			findFirstExistingSlot();
+			HOOKSYM(mainMenuScreen_Update, h_lib_gtasa, "_ZN14MainMenuScreen6UpdateEf");
+		}
 	}
 }

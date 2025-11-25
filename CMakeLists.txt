@@ -15,10 +15,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(src)
 add_subdirectory(libs)
 
-# Includes da pasta src e include/
+# Includes da pasta include
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
 )
 
 # Cria a lib final

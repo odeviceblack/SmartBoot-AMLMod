@@ -1,6 +1,6 @@
 #include "main.hpp"
-#include "SkipSocialClub.hpp"
-#include "StartGame.hpp"
+#include "SCAnd/SkipSocialClub.hpp"
+#include "Game/FastPlay.hpp"
 
 MYMODCFGNAME(com.deviceblack.gtasa.SmartBoot, SmartBoot, 2.1, DeviceBlack, SmartBoot)
 NEEDGAME(com.rockstargames.gtasa)
@@ -8,18 +8,11 @@ NEEDGAME(com.rockstargames.gtasa)
 void* h_lib_scand = nullptr;
 void* h_lib_gtasa = nullptr;
 
-void safeClear(JNIEnv* env)
-{
-	if(env->ExceptionCheck())
-	{
-		env->ExceptionDescribe();
-		env->ExceptionClear();
-	}
-}
-
 ON_MOD_PRELOAD()
 {
 	logger->SetTag("SmartBoot");
+	logger->SetFile(aml->GetConfigPath(), "../mods/SmartBoot.txt");
+	logger->EnableFileLogging(true);
 
 	h_lib_scand = aml->GetLibHandle("libSCAnd.so");
 	logger->Info("libSCAnd.so: 0x%" PRIXPTR, (uintptr_t)h_lib_scand);
@@ -30,18 +23,20 @@ ON_MOD_PRELOAD()
 
 ON_MOD_LOAD()
 {
-	if(h_lib_scand)
-	{
-		if(cfg->GetBool("SkipSocialClub", true, "SCAndSkip"))
-			hookSocialClub();
-	}
-	else logger->Info("SocialClub screen skip unavailable");
+	bool skip_sc = cfg->GetBool("SkipSocialClub", true, "SCAndSkip");
+	const char* start_mode = cfg->GetString("Mode", "auto", "SmartBoot");
+	const char* savegames = cfg->GetString("Saves", "GTASAsf9.b GTASAsf10.b", "SmartBoot");
 
-	if(h_lib_gtasa)
+	if(skip_sc)
 	{
-		const char* mode = cfg->GetString("Mode", "auto", "SmartBoot");
-		const char* slots = cfg->GetString("Saves", "GTASAsf9.b GTASAsf10.b", "SmartBoot");
-		startGameProcess(mode, slots);
+		if(!h_lib_scand)
+			return logger->Info("SocialClub screen skip unavailable");
+
+		SkipSocialClub::Init();
 	}
-	else logger->Info("GTASA quick-start unavailable");
+
+	if(!h_lib_gtasa)
+		return logger->Info("Something went wrong when starting the mod");
+
+	FastPlay::Init(start_mode, savegames);
 }
