@@ -11,8 +11,11 @@ void* h_lib_gtasa = nullptr;
 ON_MOD_PRELOAD()
 {
 	logger->SetTag("SmartBoot");
-	logger->SetFile(aml->GetConfigPath(), "../mods/SmartBoot.txt");
-	logger->EnableFileLogging(true);
+	
+	#ifdef LOG_IN_FILE
+		logger->SetFile(aml->GetConfigPath(), "../mods/SmartBoot.txt");
+		logger->EnableFileLogging(true);
+	#endif
 
 	h_lib_scand = aml->GetLibHandle("libSCAnd.so");
 	logger->Info("libSCAnd.so: 0x%" PRIXPTR, (uintptr_t)h_lib_scand);

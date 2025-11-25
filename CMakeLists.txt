@@ -11,6 +11,13 @@ project(${PROJECT_TITLE})
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Enable file logging
+option(LOG_IN_FILE "Enable logging to file" OFF)
+
+if(LOG_IN_FILE)
+	add_compile_definitions(LOG_IN_FILE)
+endif()
+
 # Inclui subdiretórios
 add_subdirectory(src)
 add_subdirectory(libs)
