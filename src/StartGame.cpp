@@ -1,147 +1,166 @@
 #include "StartGame.hpp"
 #include "main.hpp"
+
+#include <vector>
+#include <string>
+#include <filesystem>
 #include <unordered_map>
 #include <sstream>
 
-int start_mode = 0;
-std::vector<std::string> savegames;
+namespace fs = std::filesystem;
 
-void (*StartGameScreen_OnNewGameCheck)() = nullptr;
-void (*StartGameScreen_OnLoadGame)() = nullptr;
-void (*Menu_LoadSlot)(int) = nullptr;
-void (*Menu_Resume)() = nullptr;
-
-static const std::unordered_map<std::string, int> SLOT_MAP = {
-	{"GTASAsf1.b",	0},
-	{"GTASAsf2.b",	1},
-	{"GTASAsf3.b",	2},
-	{"GTASAsf4.b",	3},
-	{"GTASAsf5.b",	4},
-	{"GTASAsf6.b",	5},
-	{"GTASAsf9.b",	8},
-	{"GTASAsf10.b",	9},
-};
-
-int GetStartMode(const char* mode)
+namespace
 {
-	if(!mode) return 0;
+	int start_mode = 0;
+	int start_slot = -1;
 
-	static const std::unordered_map<std::string, int> map = {
-		{"none",		0},
-		{"newgame",		1},
-		{"loadgame",	2},
-		{"loadslot",	3},
-		{"auto",		4},
-		{"auto2",		5},
+	std::vector<std::string> save_slots;
+
+	const std::unordered_map<std::string, int> slot_map = {
+		{"GTASAsf1.b", 0},
+		{"GTASAsf2.b", 1},
+		{"GTASAsf3.b", 2},
+		{"GTASAsf4.b", 3},
+		{"GTASAsf5.b", 4},
+		{"GTASAsf6.b", 5},
+		{"GTASAsf9.b", 8},
+		{"GTASAsf10.b", 9}
 	};
 
-	auto it = map.find(mode);
-	return (it != map.end()) ? it->second : 0;
-}
+	void (*startGameScreen_onNewGameCheck)() = nullptr;
+	void (*startGameScreen_onLoadGame)() = nullptr;
+	void (*mainMenuScreen_onResume)(void*) = nullptr;
 
-int GetSlotIndex(const std::string& slot)
-{
-	auto it = SLOT_MAP.find(slot);
-	return (it != SLOT_MAP.end()) ? it->second : -1;
-}
-
-std::vector<std::string> SplitSlots(const char* slotsStr)
-{
-	std::vector<std::string> result;
-	if(!slotsStr) return result;
-
-	std::istringstream ss(slotsStr);
-	std::string token;
-
-	while(ss >> token)
-		result.push_back(token);
-
-	return result;
-}
-
-int FindFirstExistingSlot()
-{
-	std::string basePath = std::string(aml->GetConfigPath()) + "../files/";
-
-	for(const std::string& slot : savegames)
+	inline int getStartMode(const char* mode)
 	{
-		std::string full = basePath + slot;
+		if(!mode) return 0;
 
-		if(fs::exists(full))
-			return GetSlotIndex(slot);
+		static const std::unordered_map<std::string, int> map = {
+			{"none",0},
+			{"newgame",1},
+			{"loadgame",2},
+			{"loadslot",3},
+			{"auto",4},
+			{"auto2",5}
+		};
+
+		auto it = map.find(mode);
+		return (it != map.end()) ? it->second : 0;
 	}
 
-	return -1;
-}
-
-DECL_HOOKv(MainMenuScreen_Update, void* self, float delta)
-{
-	MainMenuScreen_Update(self, delta);
-
-	static int start_status = 0;
-	if(start_status == 2)
-		return;
-
-	if(start_status == 1)
+	inline int getSlotIndex(const std::string& slot)
 	{
-		start_status = 2;
-		// Menu_Resume(); Not working
-		return;
+		auto it = slot_map.find(slot);
+		return (it != slot_map.end()) ? it->second : -1;
 	}
 
-	start_status = 2;
-
-	int existingSlot = FindFirstExistingSlot();
-
-	switch(start_mode)
+	inline std::vector<std::string> splitSlots(const char* slots_str)
 	{
-		case 1:
-			StartGameScreen_OnNewGameCheck();
-			break;
+		std::vector<std::string> out;
+		if(!slots_str) return out;
 
-		case 2:
-			StartGameScreen_OnLoadGame();
-			break;
+		std::istringstream ss(slots_str);
+		std::string tmp;
 
-		case 3:
-			if(existingSlot >= 0)
+		while(ss >> tmp)
+			out.push_back(tmp);
+
+		return out;
+	}
+
+	void findFirstExistingSlot()
+	{
+		std::string base_path = std::string(aml->GetConfigPath()) + "../files/";
+
+		for(const std::string& slot : save_slots)
+		{
+			std::string full = base_path + slot;
+
+			if(fs::exists(full))
 			{
-				start_status = 1;
-				Menu_LoadSlot(existingSlot);
-			}
-			break;
+				start_slot = getSlotIndex(slot);
 
-		case 4:
-			if(existingSlot >= 0)
-			{
-				start_status = 1;
-				Menu_LoadSlot(existingSlot);
+				if(start_slot < 8)
+				{
+					std::string dest = base_path + "GTASAsf10.b";
+
+					try
+					{
+						fs::copy_file(full, dest, fs::copy_options::overwrite_existing);
+					}
+					catch(const fs::filesystem_error& e)
+					{
+						logger->Error("Error copying save: %s", e.what());
+						start_slot = -1;
+					}
+				}
 				break;
 			}
-			StartGameScreen_OnNewGameCheck();
-			break;
+		}
+	}
 
-		case 5:
-			if(existingSlot >= 0)
-			{
-				start_status = 1;
-				Menu_LoadSlot(existingSlot);
+	DECL_HOOKv(mainMenuScreen_Update, void* self, float delta)
+	{
+		mainMenuScreen_Update(self, delta);
+		if(start_mode == 0) return;
+
+		switch(start_mode)
+		{
+			case 1:
+				startGameScreen_onNewGameCheck();
 				break;
-			}
-			StartGameScreen_OnLoadGame();
-			break;
+
+			case 2:
+				startGameScreen_onLoadGame();
+				break;
+
+			case 3:
+				if(start_slot != -1)
+					mainMenuScreen_onResume(self);
+				break;
+
+			case 4:
+				if(start_slot == -1)
+					startGameScreen_onNewGameCheck();
+				else
+					mainMenuScreen_onResume(self);
+				break;
+
+			case 5:
+				if(start_slot == -1)
+					startGameScreen_onLoadGame();
+				else
+					mainMenuScreen_onResume(self);
+				break;
+		}
+
+		start_mode = 0;
+	}
+
+	DECL_HOOKv(menu_LoadSlot, int slot)
+	{
+		if(start_slot == -1)
+			return menu_LoadSlot(slot);
+
+		menu_LoadSlot(start_slot);
+		start_slot = -1;
 	}
 }
 
-void StartGameProcess(const char* mode, const char* slots)
+void startGameProcess(const char* mode, const char* slots)
 {
-	start_mode = GetStartMode(mode);
-	savegames = SplitSlots(slots);
+	start_mode = getStartMode(mode);
+	save_slots = splitSlots(slots);
 
-	SETSYM_TO(StartGameScreen_OnNewGameCheck, h_libGTASA, "_ZN15StartGameScreen14OnNewGameCheckEv");
-	SETSYM_TO(StartGameScreen_OnLoadGame, h_libGTASA, "_ZN15StartGameScreen10OnLoadGameEv");
-	SETSYM_TO(Menu_LoadSlot, h_libGTASA, "_Z13Menu_LoadSloti");
-	SETSYM_TO(Menu_Resume, h_libGTASA, "_Z11Menu_Resumev");
+	SETSYM_TO(startGameScreen_onNewGameCheck, h_lib_gtasa, "_ZN15StartGameScreen14OnNewGameCheckEv");
+	SETSYM_TO(startGameScreen_onLoadGame, h_lib_gtasa, "_ZN15StartGameScreen10OnLoadGameEv");
+	SETSYM_TO(mainMenuScreen_onResume, h_lib_gtasa, "_ZN14MainMenuScreen8OnResumeEv");
 
-	HOOKSYM(MainMenuScreen_Update, h_libGTASA, "_ZN14MainMenuScreen6UpdateEf");
+	HOOKSYM(mainMenuScreen_Update, h_lib_gtasa, "_ZN14MainMenuScreen6UpdateEf");
+
+	if(start_mode >= 3)
+	{
+		findFirstExistingSlot();
+		HOOKSYM(menu_LoadSlot, h_lib_gtasa, "_Z13Menu_LoadSloti");
+	}
 }

@@ -2,18 +2,22 @@
 #include "FullScreen.hpp"
 #include "main.hpp"
 
-DECL_HOOKv(SocialClub_LoadScreen, void* self)
+inline void trySignInOffline(void* self)
 {
-	hideSystemUI();
-
-	void (*signInOffline)(void*) = nullptr;
-	SETSYM_TO(signInOffline, h_libSCAnd, "_ZN10SocialClub13signInOfflineEv");
+	void(*signInOffline)(void*) = nullptr;
+	SETSYM_TO(signInOffline, h_lib_scand, "_ZN10SocialClub13signInOfflineEv");
 
 	if(signInOffline)
 		signInOffline(self);
 }
 
-void HookSocialClub()
+DECL_HOOKv(socialClub_LoadScreen, void* self)
 {
-	HOOKSYM(SocialClub_LoadScreen, h_libSCAnd, "_ZN10SocialClub10LoadScreenEv");
+	hideSystemUI();
+	trySignInOffline(self);
+}
+
+void hookSocialClub()
+{
+	HOOKSYM(socialClub_LoadScreen, h_lib_scand, "_ZN10SocialClub10LoadScreenEv");
 }

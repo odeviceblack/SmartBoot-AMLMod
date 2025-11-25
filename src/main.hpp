@@ -8,5 +8,5 @@
 
 void safeClear(JNIEnv* env);
 
-extern void* h_libSCAnd;
-extern void* h_libGTASA;
+extern void* h_lib_scand;
+extern void* h_lib_gtasa;

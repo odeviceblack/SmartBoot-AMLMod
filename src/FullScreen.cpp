@@ -6,39 +6,39 @@ void hideSystemUI()
 	JNIEnv* env = aml->GetJNIEnvironment();
 	if(!env) return logger->Error("invalid JNI environment!");
 
-	jclass nvUtilClass = env->FindClass("com/nvidia/devtech/NvUtil");
-	if(!nvUtilClass) return logger->Error("nvUtilClass not found!");
+	jclass nv_util_class = env->FindClass("com/nvidia/devtech/NvUtil");
+	if(!nv_util_class) return logger->Error("nv_util_class not found!");
 	safeClear(env);
 
-	jmethodID getInstance = env->GetStaticMethodID(nvUtilClass, "getInstance", "()Lcom/nvidia/devtech/NvUtil;");
+	jmethodID getInstance = env->GetStaticMethodID(nv_util_class, "getInstance", "()Lcom/nvidia/devtech/NvUtil;");
 	if(!getInstance) return logger->Error("getInstance not found!");
 	safeClear(env);
 
-	jobject instanceObj = env->CallStaticObjectMethod(nvUtilClass, getInstance);
-	if(!instanceObj) return logger->Error("instanceObj not found!");
+	jobject instance_obj = env->CallStaticObjectMethod(nv_util_class, getInstance);
+	if(!instance_obj) return logger->Error("instance_obj not found!");
 	safeClear(env);
 
-	jfieldID activityField = env->GetFieldID(nvUtilClass, "activity", "Landroid/app/Activity;");
+	jfieldID activityField = env->GetFieldID(nv_util_class, "activity", "Landroid/app/Activity;");
 	if(!activityField) return logger->Error("activityField not found!");
 	safeClear(env);
 
-	jobject activityObj = env->GetObjectField(instanceObj, activityField);
-	if(!activityObj) return logger->Error("activityObj not found!");
+	jobject activity_obj = env->GetObjectField(instance_obj, activityField);
+	if(!activity_obj) return logger->Error("activity_obj not found!");
 	safeClear(env);
 
-	jclass activityClass = env->FindClass("com/nvidia/devtech/NvEventQueueActivity");
-	if(!activityClass) return logger->Error("activityClass not found!");
+	jclass activity_class = env->FindClass("com/nvidia/devtech/NvEventQueueActivity");
+	if(!activity_class) return logger->Error("activity_class not found!");
 	safeClear(env);
 
-	jmethodID hideSystemUI = env->GetMethodID(activityClass, "hideSystemUI", "()V");
+	jmethodID hideSystemUI = env->GetMethodID(activity_class, "hideSystemUI", "()V");
 	if(!hideSystemUI) return logger->Error("hideSystemUI not found!");
 	safeClear(env);
 
-	env->CallVoidMethod(activityObj, hideSystemUI);
+	env->CallVoidMethod(activity_obj, hideSystemUI);
 	safeClear(env);
 
-	env->DeleteLocalRef(nvUtilClass);
-	env->DeleteLocalRef(instanceObj);
-	env->DeleteLocalRef(activityObj);
-	env->DeleteLocalRef(activityClass);
+	env->DeleteLocalRef(nv_util_class);
+	env->DeleteLocalRef(instance_obj);
+	env->DeleteLocalRef(activity_obj);
+	env->DeleteLocalRef(activity_class);
 }

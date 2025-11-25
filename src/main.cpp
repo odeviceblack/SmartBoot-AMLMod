@@ -2,11 +2,11 @@
 #include "SkipSocialClub.hpp"
 #include "StartGame.hpp"
 
-MYMODCFGNAME(com.deviceblack.gtasa.SmartBoot, SmartBoot, 2.0, DeviceBlack, SmartBoot)
+MYMODCFGNAME(com.deviceblack.gtasa.SmartBoot, SmartBoot, 2.1, DeviceBlack, SmartBoot)
 NEEDGAME(com.rockstargames.gtasa)
 
-void* h_libSCAnd = nullptr;
-void* h_libGTASA = nullptr;
+void* h_lib_scand = nullptr;
+void* h_lib_gtasa = nullptr;
 
 void safeClear(JNIEnv* env)
 {
@@ -21,27 +21,27 @@ ON_MOD_PRELOAD()
 {
 	logger->SetTag("SmartBoot");
 
-	h_libSCAnd = aml->GetLibHandle("libSCAnd.so");
-	logger->Info("libSCAnd.so: 0x%" PRIXPTR, (uintptr_t)h_libSCAnd);
+	h_lib_scand = aml->GetLibHandle("libSCAnd.so");
+	logger->Info("libSCAnd.so: 0x%" PRIXPTR, (uintptr_t)h_lib_scand);
 
-	h_libGTASA = aml->GetLibHandle("libGTASA.so");
-	logger->Info("libGTASA.so: 0x%" PRIXPTR, (uintptr_t)h_libGTASA);
+	h_lib_gtasa = aml->GetLibHandle("libGTASA.so");
+	logger->Info("libGTASA.so: 0x%" PRIXPTR, (uintptr_t)h_lib_gtasa);
 }
 
 ON_MOD_LOAD()
 {
-	if(h_libSCAnd)
+	if(h_lib_scand)
 	{
 		if(cfg->GetBool("SkipSocialClub", true, "SCAndSkip"))
-			HookSocialClub();
+			hookSocialClub();
 	}
-	else logger->Info("It was not possible to skip the SocialClub screen");
+	else logger->Info("SocialClub screen skip unavailable");
 
-	if(h_libGTASA)
+	if(h_lib_gtasa)
 	{
 		const char* mode = cfg->GetString("Mode", "auto", "SmartBoot");
 		const char* slots = cfg->GetString("Saves", "GTASAsf9.b GTASAsf10.b", "SmartBoot");
-		StartGameProcess(mode, slots);
+		startGameProcess(mode, slots);
 	}
-	else logger->Info("Unable to process the quick start of the game");
+	else logger->Info("GTASA quick-start unavailable");
 }
