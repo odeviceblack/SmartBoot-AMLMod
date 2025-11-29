@@ -17,7 +17,6 @@ Instead of stopping on menus or prompts, SmartBoot can automatically:
 
 Fast, clean, and interruption-free — the game boots exactly the way you want.
 
-Outdated GIF demo:
 ![Demonstration](media/video.gif)
 
 ---
