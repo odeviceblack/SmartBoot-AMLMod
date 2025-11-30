@@ -2,70 +2,89 @@
 #include "../main.hpp"
 #include <vector>
 #include <string>
-#include <filesystem>
-#include <unordered_map>
-#include <sstream>
+#include <fstream>
+#include <unistd.h>   // access()
 
 namespace FastPlay
 {
-	namespace fs = std::filesystem;
-
 	int start_mode = 0;
 	int start_slot = -1;
 
 	std::vector<std::string> save_slots;
 
-	const std::unordered_map<std::string, int> slot_map = {
-		{"GTASAsf1.b", 0},
-		{"GTASAsf2.b", 1},
-		{"GTASAsf3.b", 2},
-		{"GTASAsf4.b", 3},
-		{"GTASAsf5.b", 4},
-		{"GTASAsf6.b", 5},
-		{"GTASAsf9.b", 8},
-		{"GTASAsf10.b", 9}
-	};
+	inline bool fileExists(const std::string& path)
+	{
+		return access(path.c_str(), F_OK) == 0;
+	}
 
-	void (*startGameScreen_onNewGameCheck)() = nullptr;
-	void (*startGameScreen_onLoadGame)() = nullptr;
-	void (*mainMenuScreen_onResume)(void*) = nullptr;
+	inline bool copyFile(const std::string& src, const std::string& dst)
+	{
+		std::ifstream in(src, std::ios::binary);
+		if(!in) return false;
+
+		std::ofstream out(dst, std::ios::binary);
+		if(!out) return false;
+
+		out << in.rdbuf();
+		return true;
+	}
 
 	inline int getStartMode(const char* mode)
 	{
 		if(!mode) return 0;
 
-		static const std::unordered_map<std::string, int> map = {
-			{"none",0},
-			{"newgame",1},
-			{"loadgame",2},
-			{"loadslot",3},
-			{"auto",4},
-			{"auto2",5}
-		};
+		if(strcmp(mode, "none") == 0) return 0;
+		if(strcmp(mode, "newgame") == 0) return 1;
+		if(strcmp(mode, "loadgame") == 0) return 2;
+		if(strcmp(mode, "loadslot") == 0) return 3;
+		if(strcmp(mode, "auto") == 0) return 4;
+		if(strcmp(mode, "auto2") == 0) return 5;
 
-		auto it = map.find(mode);
-		return (it != map.end()) ? it->second : 0;
+		return 0;
 	}
 
 	inline int getSlotIndex(const std::string& slot)
 	{
-		auto it = slot_map.find(slot);
-		return (it != slot_map.end()) ? it->second : -1;
+		if(slot == "GTASAsf1.b") return 0;
+		if(slot == "GTASAsf2.b") return 1;
+		if(slot == "GTASAsf3.b") return 2;
+		if(slot == "GTASAsf4.b") return 3;
+		if(slot == "GTASAsf5.b") return 4;
+		if(slot == "GTASAsf6.b") return 5;
+		if(slot == "GTASAsf9.b") return 8;
+		if(slot == "GTASAsf10.b") return 9;
+		return -1;
 	}
 
-	inline std::vector<std::string> splitSlots(const char* slots_str)
+	inline std::vector<std::string> splitSlots(const char* slots)
 	{
 		std::vector<std::string> out;
-		if(!slots_str) return out;
+		if(!slots) return out;
 
-		std::istringstream ss(slots_str);
 		std::string tmp;
-
-		while(ss >> tmp)
+		while(*slots)
+		{
+			if(*slots == ' ')
+			{
+				if(!tmp.empty())
+				{
+					out.push_back(tmp);
+					tmp.clear();
+				}
+			}
+			else
+				tmp.push_back(*slots);
+			slots++;
+		}
+		if(!tmp.empty())
 			out.push_back(tmp);
 
 		return out;
 	}
+
+	void (*StartGameScreen_onNewGameCheck)() = nullptr;
+	void (*StartGameScreen_onLoadGame)() = nullptr;
+	void (*MainMenuScreen_onResume)(void*) = nullptr;
 
 	void findFirstExistingSlot()
 	{
@@ -75,7 +94,7 @@ namespace FastPlay
 		{
 			std::string full = base_path + slot;
 
-			if(fs::exists(full))
+			if(fileExists(full))
 			{
 				start_slot = getSlotIndex(slot);
 
@@ -83,13 +102,9 @@ namespace FastPlay
 				{
 					std::string dest = base_path + "GTASAsf10.b";
 
-					try
+					if(!copyFile(full, dest))
 					{
-						fs::copy_file(full, dest, fs::copy_options::overwrite_existing);
-					}
-					catch(const fs::filesystem_error& e)
-					{
-						logger->Error("Error copying save: %s", e.what());
+						logger->Error("Erro ao copiar save!");
 						start_slot = -1;
 					}
 				}
@@ -98,50 +113,46 @@ namespace FastPlay
 		}
 	}
 
-	DECL_HOOKv(mainMenuScreen_Update, void* self, float delta)
+
+	DECL_HOOKv(MainMenuScreen_Update, void* self, float delta)
 	{
-		mainMenuScreen_Update(self, delta);
-		if(start_mode == 0) return;
-	
+		if(start_mode == 0)
+			return MainMenuScreen_Update(self, delta);
+
 		switch(start_mode)
 		{
-			case 1:
-				startGameScreen_onNewGameCheck();
-				break;
-
-			case 2:
-				startGameScreen_onLoadGame();
-				break;
+			case 1: StartGameScreen_onNewGameCheck(); break;
+			case 2: StartGameScreen_onLoadGame(); break;
 
 			case 3:
 				if(start_slot != -1)
-					mainMenuScreen_onResume(self);
+					MainMenuScreen_onResume(self);
 				break;
 
 			case 4:
 				if(start_slot == -1)
-					startGameScreen_onNewGameCheck();
+					StartGameScreen_onNewGameCheck();
 				else
-					mainMenuScreen_onResume(self);
+					MainMenuScreen_onResume(self);
 				break;
 
 			case 5:
 				if(start_slot == -1)
-					startGameScreen_onLoadGame();
+					StartGameScreen_onLoadGame();
 				else
-					mainMenuScreen_onResume(self);
+					MainMenuScreen_onResume(self);
 				break;
 		}
 
 		start_mode = 0;
 	}
 
-	DECL_HOOKv(menu_LoadSlot, int slot)
+	DECL_HOOKv(Menu_LoadSlot, int slot)
 	{
 		if(start_slot == -1)
-			return menu_LoadSlot(slot);
+			return Menu_LoadSlot(slot);
 
-		menu_LoadSlot(start_slot);
+		Menu_LoadSlot(start_slot);
 		start_slot = -1;
 	}
 
@@ -150,15 +161,16 @@ namespace FastPlay
 		start_mode = getStartMode(mode);
 		save_slots = splitSlots(slots);
 
-		SETSYM_TO(startGameScreen_onNewGameCheck, h_lib_gtasa, "_ZN15StartGameScreen14OnNewGameCheckEv");
-		SETSYM_TO(startGameScreen_onLoadGame, h_lib_gtasa, "_ZN15StartGameScreen10OnLoadGameEv");
-		SETSYM_TO(mainMenuScreen_onResume, h_lib_gtasa, "_ZN14MainMenuScreen8OnResumeEv");
-		HOOKSYM(menu_LoadSlot, h_lib_gtasa, "_Z13Menu_LoadSloti");
+		SETSYM_TO(StartGameScreen_onNewGameCheck, h_lib_gtasa, "_ZN15StartGameScreen14OnNewGameCheckEv");
+		SETSYM_TO(StartGameScreen_onLoadGame, h_lib_gtasa, "_ZN15StartGameScreen10OnLoadGameEv");
+		SETSYM_TO(MainMenuScreen_onResume, h_lib_gtasa, "_ZN14MainMenuScreen8OnResumeEv");
+
+		HOOKSYM(Menu_LoadSlot, h_lib_gtasa, "_Z13Menu_LoadSloti");
 
 		if(start_mode > 0)
 		{
 			findFirstExistingSlot();
-			HOOKSYM(mainMenuScreen_Update, h_lib_gtasa, "_ZN14MainMenuScreen6UpdateEf");
+			HOOKSYM(MainMenuScreen_Update, h_lib_gtasa, "_ZN14MainMenuScreen6UpdateEf");
 		}
 	}
 }

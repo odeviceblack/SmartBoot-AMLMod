@@ -10,6 +10,7 @@ project(${PROJECT_TITLE})
 # Define C++ padrão
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 # Enable file logging
 option(LOG_IN_FILE "Enable logging to file" OFF)
@@ -32,10 +33,12 @@ add_library(${PROJECT_NAME} SHARED ${SRC_ALL_FILES})
 
 # Flags de compilação
 if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
-    target_compile_options(${PROJECT_NAME} PRIVATE -O2 -mfloat-abi=softfp -DNDEBUG)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Oz -fno-rtti -fno-exceptions -mfloat-abi=softfp -DNDEBUG)
 else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -O2 -DNDEBUG)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Oz -fno-rtti -fno-exceptions -DNDEBUG)
 endif()
+
+target_link_options(${PROJECT_NAME} PRIVATE -fuse-ld=lld)
 
 # Linka libs Android + libs vindas da pasta libs
 target_link_libraries(${PROJECT_NAME}
